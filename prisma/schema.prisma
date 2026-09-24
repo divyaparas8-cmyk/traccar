@@ -1,0 +1,336 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ---------------- ENUMS ----------------
+
+enum UserRole {
+  PLATFORM_OPERATIONS_MANAGER
+  FLEET_MANAGER
+  DRIVER
+}
+
+enum ClientStatus {
+  active
+  inactive
+}
+
+enum VehicleStatus {
+  active
+  maintenance
+  inactive
+}
+
+enum VehicleType {
+  truck
+  van
+  car
+  bus
+}
+
+enum FuelType {
+  Diesel
+  Petrol
+  Electric
+  Hybrid
+}
+
+enum DriverStatus {
+  active
+  inactive
+}
+
+enum MaintenanceStatus {
+  scheduled
+  in_progress
+  completed
+}
+
+enum KeuringResult {
+  passed
+  conditional
+  failed
+}
+
+enum KeuringStatus {
+  valid
+  expiring_soon
+  expired
+  pending
+}
+
+enum DocumentCategory {
+  Insurance
+  Keuring
+  Registration
+  License
+}
+
+enum NotificationType {
+  overspeed
+  keuring
+  maintenance
+  insurance
+  offline
+}
+
+enum NotificationSeverity {
+  critical
+  warning
+  info
+}
+
+// ---------------- MODELS ----------------
+
+model User {
+  id                        String         @id @default(uuid())
+  name                      String
+  email                     String         @unique
+  passwordHash              String
+  role                      UserRole       @default(FLEET_MANAGER)
+  avatar                    String?
+  language                  String         @default("en")
+  speedThreshold            Int            @default(80)
+  idleAlertMinutes          Int            @default(15)
+  receivePushNotifications  Boolean        @default(true)
+  receiveEmailNotifications Boolean        @default(true)
+  clientId                  Int?
+  client                    Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  refreshTokens             RefreshToken[]
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
+
+  @@index([clientId])
+}
+
+model RefreshToken {
+  id              String    @id @default(uuid())
+  tokenHash       String
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  replacedByToken String?
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Client {
+  id              Int              @id @default(autoincrement())
+  name            String
+  code            String           @unique
+  email           String           @unique
+  phone           String?
+  address         String?
+  status          ClientStatus     @default(active)
+  createdDate     String           @default("")
+  users           User[]
+  vehicles        Vehicle[]
+  drivers         Driver[]
+  fuelLogs        FuelLog[]
+  maintenanceLogs MaintenanceLog[]
+  keuringRecords  KeuringRecord[]
+  documents       Document[]
+  notifications   Notification[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Vehicle {
+  id                  Int                      @id @default(autoincrement())
+  clientId            Int
+  client              Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name                String
+  plate               String                   @unique
+  vin                 String                   @unique
+  engineNumber        String?
+  make                String                   @default("Scania")
+  model               String?
+  manufactureYear     Int                      @default(2023)
+  type                VehicleType              @default(truck)
+  status              VehicleStatus            @default(active)
+  gpsEnabled          Boolean                  @default(true)
+  speed               Int                      @default(0)
+  fuelLevel           Float                    @default(100)
+  battery             Float                    @default(12.6)
+  address             String?
+  driverId            Int?                     @unique
+  driver              Driver?                  @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  lastUpdate          DateTime                 @default(now())
+  odometer            Int                      @default(0)
+  fuelType            FuelType                 @default(Diesel)
+  tankCapacity        Float                    @default(500)
+  grossPayload        Float                    @default(30.0)
+  netPayload          Float                    @default(18.0)
+  traccarDeviceId     Int?                     @unique
+  trackerImei         String?                  @unique
+  insuranceExpiry     String
+  keuringExpiry       String
+  maintenanceDue      String?
+  photo               String?
+  lat                 Float                    @default(48.8566)
+  lng                 Float                    @default(2.3522)
+  course              Int                      @default(0)
+  fuelLogs            FuelLog[]
+  maintenanceLogs    MaintenanceLog[]
+  keuringRecords     KeuringRecord[]
+  documents          Document[]
+  notifications      Notification[]
+  routeHistories      RouteHistory[]
+  assignmentHistories DriverAssignmentHistory[]
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@index([clientId, status])
+  @@index([plate])
+  @@index([vin])
+}
+
+model Driver {
+  id                  Int                      @id @default(autoincrement())
+  clientId            Int
+  client              Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name                String
+  phone               String
+  email               String                   @unique
+  licenseNumber       String                   @unique
+  avatar              String?
+  assignedVehicleId   Int?                     @unique
+  assignedVehicle     Vehicle?
+  status              DriverStatus             @default(active)
+  experience          String                   @default("3 years")
+  assignmentHistories DriverAssignmentHistory[]
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@index([clientId, status])
+}
+
+model DriverAssignmentHistory {
+  id           Int       @id @default(autoincrement())
+  driverId     Int
+  driver       Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicleId    Int
+  vehicle      Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  assignedAt   DateTime  @default(now())
+  unassignedAt DateTime?
+  status       String    @default("Active Assignment")
+
+  @@index([driverId])
+  @@index([vehicleId])
+}
+
+model FuelLog {
+  id          Int      @id @default(autoincrement())
+  clientId    Int
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vehicleId   Int
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  date        String
+  fuelAmount  Float
+  cost        Float
+  odometer    Int
+  driverName  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([clientId, vehicleId, date])
+}
+
+model MaintenanceLog {
+  id          Int               @id @default(autoincrement())
+  clientId    Int
+  client      Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vehicleId   Int
+  vehicle     Vehicle           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  serviceType String
+  date        String
+  cost        Float
+  status      MaintenanceStatus @default(scheduled)
+  notes       String?
+  provider    String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([clientId, vehicleId, status])
+}
+
+model KeuringRecord {
+  id                 Int           @id @default(autoincrement())
+  clientId           Int
+  client             Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vehicleId          Int
+  vehicle            Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  certificateId      String        @unique
+  lastInspectionDate String
+  expiryDate         String
+  station            String
+  result             KeuringResult @default(passed)
+  status             KeuringStatus @default(valid)
+  notes              String?
+  documentUrl        String?
+  inspectorName      String?
+  documentId         Int?          @unique
+  document           Document?     @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([clientId, vehicleId, expiryDate, status])
+}
+
+model Document {
+  id            Int              @id @default(autoincrement())
+  clientId      Int
+  client        Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vehicleId     Int?
+  vehicle       Vehicle?         @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  title         String
+  category      DocumentCategory @default(Insurance)
+  size          String           @default("1.5 MB")
+  uploadDate    String
+  expiryDate    String?
+  fileUrl       String?
+  keuringRecord KeuringRecord?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([clientId, category])
+}
+
+model Notification {
+  id        Int                  @id @default(autoincrement())
+  clientId  Int
+  client    Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vehicleId Int?
+  vehicle   Vehicle?             @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  type      NotificationType     @default(overspeed)
+  message   String
+  timestamp DateTime             @default(now())
+  severity  NotificationSeverity @default(warning)
+  read      Boolean              @default(false)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@index([clientId, read, timestamp])
+}
+
+model RouteHistory {
+  id        Int      @id @default(autoincrement())
+  vehicleId Int
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  lat       Float
+  lng       Float
+  speed     Int
+  course    Int
+  timestamp DateTime @default(now())
+  address   String?
+  createdAt DateTime @default(now())
+
+  @@index([vehicleId, timestamp])
+}
