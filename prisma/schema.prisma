@@ -106,6 +106,7 @@ model User {
   updatedAt                 DateTime       @updatedAt
 
   @@index([clientId])
+  @@map("user")
 }
 
 model RefreshToken {
@@ -119,6 +120,7 @@ model RefreshToken {
   createdAt       DateTime  @default(now())
 
   @@index([userId])
+  @@map("refreshtoken")
 }
 
 model Client {
@@ -140,6 +142,8 @@ model Client {
   notifications   Notification[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+
+  @@map("client")
 }
 
 model Vehicle {
@@ -190,6 +194,8 @@ model Vehicle {
   @@index([clientId, status])
   @@index([plate])
   @@index([vin])
+
+  @@map("vehicle")
 }
 
 model Driver {
@@ -210,6 +216,8 @@ model Driver {
   updatedAt           DateTime                 @updatedAt
 
   @@index([clientId, status])
+
+  @@map("driver")
 }
 
 model DriverAssignmentHistory {
@@ -224,6 +232,8 @@ model DriverAssignmentHistory {
 
   @@index([driverId])
   @@index([vehicleId])
+
+  @@map("driverassignmenthistory")
 }
 
 model FuelLog {
@@ -241,6 +251,8 @@ model FuelLog {
   updatedAt   DateTime @updatedAt
 
   @@index([clientId, vehicleId, date])
+
+  @@map("fuellog")
 }
 
 model MaintenanceLog {
@@ -259,6 +271,8 @@ model MaintenanceLog {
   updatedAt   DateTime          @updatedAt
 
   @@index([clientId, vehicleId, status])
+
+  @@("maintenancelogs")
 }
 
 model KeuringRecord {
@@ -282,6 +296,8 @@ model KeuringRecord {
   updatedAt          DateTime      @updatedAt
 
   @@index([clientId, vehicleId, expiryDate, status])
+
+  @@map("keuringrecord")
 }
 
 model Document {
@@ -301,6 +317,8 @@ model Document {
   updatedAt     DateTime         @updatedAt
 
   @@index([clientId, category])
+
+  @@map("document")
 }
 
 model Notification {
@@ -318,6 +336,8 @@ model Notification {
   updatedAt DateTime             @updatedAt
 
   @@index([clientId, read, timestamp])
+
+  @@map("notification")
 }
 
 model RouteHistory {
@@ -333,4 +353,6 @@ model RouteHistory {
   createdAt DateTime @default(now())
 
   @@index([vehicleId, timestamp])
+
+  @@map("routehistory")
 }
