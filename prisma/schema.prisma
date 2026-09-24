@@ -272,7 +272,7 @@ model MaintenanceLog {
 
   @@index([clientId, vehicleId, status])
 
-  @@map("maintenancelogs")
+  @@map("maintenancelog")
 }
 
 model KeuringRecord {
