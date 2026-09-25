@@ -25,7 +25,10 @@ class ReportService {
         odometer: true,
         insuranceExpiry: true,
         keuringExpiry: true,
-        status: true
+        status: true,
+        fuelLogs: {
+          select: { cost: true }
+        }
       }
     });
 
@@ -33,15 +36,18 @@ class ReportService {
       category,
       dateRange,
       totalVehicles: vehicles.length,
-      ledger: vehicles.map(v => ({
-        id: v.id,
-        name: v.name,
-        plate: v.plate,
-        distanceKm: Math.round(v.odometer / 10),
-        fuelSpent: 540.00,
-        keuringStatus: v.keuringExpiry < new Date().toISOString().split('T')[0] ? 'Expired' : 'Valid Pass',
-        insuranceExpiry: v.insuranceExpiry
-      }))
+      ledger: vehicles.map(v => {
+        const totalFuel = v.fuelLogs?.reduce((sum, f) => sum + (f.cost || 0), 0) || 0;
+        return {
+          id: v.id,
+          name: v.name,
+          plate: v.plate,
+          distanceKm: Math.round(v.odometer / 10),
+          fuelSpent: parseFloat(totalFuel.toFixed(2)),
+          keuringStatus: v.keuringExpiry < new Date().toISOString().split('T')[0] ? 'Expired' : 'Valid Pass',
+          insuranceExpiry: v.insuranceExpiry
+        };
+      })
     };
   }
 

@@ -20,16 +20,19 @@ app.use(helmet({
 // 2. CORS Setup
 const allowedOrigins = [
   env.FRONTEND_URL,
+  'https://fleetflowmanagementprojectt.netlify.app',
   'http://localhost:5173',
   'http://localhost:5174',
+  'http://localhost:5175',
   'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174'
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:5175'
 ].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
-    // allow requests with no origin (like mobile apps, curl, or Postman)
-    if (!origin || allowedOrigins.includes(origin) || env.NODE_ENV === 'development') {
+    // allow requests with no origin or matching allowed origins / Netlify domains
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.netlify.app') || env.NODE_ENV === 'development') {
       return callback(null, true);
     }
     return callback(new Error('CORS Policy restriction'));

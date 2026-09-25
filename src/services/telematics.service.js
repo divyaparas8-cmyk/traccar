@@ -52,18 +52,17 @@ class TelematicsSimulatorProvider extends TelematicsProviderInterface {
     });
 
     if (waypoints.length > 0) {
-      const startPt = waypoints[0];
-      const endPt = waypoints[waypoints.length - 1];
       const maxSpeed = Math.max(...waypoints.map(w => w.speed));
       const avgSpeed = Math.round(waypoints.reduce((sum, w) => sum + w.speed, 0) / waypoints.length);
+      const idleCount = waypoints.filter(w => w.speed === 0).length;
 
       return {
         summary: {
-          totalDistanceKm: 184.2,
-          duration: '4h 22m',
-          maxSpeedKm: maxSpeed || 82,
-          avgSpeedKm: avgSpeed || 68,
-          idleMinutes: 18
+          totalDistanceKm: Math.round(waypoints.length * 12.5),
+          duration: `${Math.floor(waypoints.length * 0.8)}h ${Math.round((waypoints.length * 48) % 60)}m`,
+          maxSpeedKm: maxSpeed || 80,
+          avgSpeedKm: avgSpeed || 65,
+          idleMinutes: idleCount * 5
         },
         waypoints: waypoints.map(w => ({
           lat: w.lat,
@@ -76,23 +75,33 @@ class TelematicsSimulatorProvider extends TelematicsProviderInterface {
       };
     }
 
-    // Default route trajectory generator if no DB waypoints exist yet
-    const fallbackWaypoints = [
-      { lat: 48.8566, lng: 2.3522, speed: 0, course: 45, timestamp: `${date || '2026-09-10'}T08:00:00Z`, address: "Paris Cargo Hub Depot" },
-      { lat: 48.9100, lng: 2.5200, speed: 65, course: 60, timestamp: `${date || '2026-09-10'}T08:30:00Z`, address: "A4 Highway km 15" },
-      { lat: 49.0200, lng: 2.8500, speed: 82, course: 75, timestamp: `${date || '2026-09-10'}T09:15:00Z`, address: "A4 Highway near Meaux" },
-      { lat: 49.2583, lng: 4.0317, speed: 78, course: 95, timestamp: `${date || '2026-09-10'}T12:00:00Z`, address: "A4 Highway near Reims, France" }
+    // Dynamic trajectory generator based on actual vehicle DB position
+    const vehicle = await prisma.vehicle.findUnique({
+      where: { id: vId },
+      select: { lat: true, lng: true, address: true, speed: true, name: true, plate: true }
+    });
+
+    const baseLat = vehicle?.lat || 48.8566;
+    const baseLng = vehicle?.lng || 2.3522;
+    const baseAddress = vehicle?.address || 'Depot Terminal';
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    const generatedWaypoints = [
+      { lat: baseLat, lng: baseLng, speed: 0, course: 0, timestamp: `${targetDate}T08:00:00Z`, address: baseAddress },
+      { lat: baseLat + 0.03, lng: baseLng + 0.04, speed: 45, course: 45, timestamp: `${targetDate}T08:30:00Z`, address: `${baseAddress} (En route)` },
+      { lat: baseLat + 0.07, lng: baseLng + 0.09, speed: 72, course: 60, timestamp: `${targetDate}T09:15:00Z`, address: `Transit Corridor near ${baseAddress}` },
+      { lat: baseLat + 0.12, lng: baseLng + 0.15, speed: 68, course: 90, timestamp: `${targetDate}T12:00:00Z`, address: `Destination Point for ${vehicle?.name || 'Vehicle'}` }
     ];
 
     return {
       summary: {
-        totalDistanceKm: 184.2,
-        duration: '4h 22m',
-        maxSpeedKm: 82,
-        avgSpeedKm: 68,
-        idleMinutes: 18
+        totalDistanceKm: Math.round((vehicle?.speed || 60) * 2.5),
+        duration: '3h 30m',
+        maxSpeedKm: Math.max(72, vehicle?.speed || 0),
+        avgSpeedKm: 58,
+        idleMinutes: 15
       },
-      waypoints: fallbackWaypoints
+      waypoints: generatedWaypoints
     };
   }
 }
